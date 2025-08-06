@@ -29,6 +29,18 @@ colcon build --packages-select xarm_utils_cpp
 source install/setup.bash
 ```
 
+## 関数リスト・API
+| 関数名                                              | 概要                                   | 引数例・備考                                  |
+| :----------------------------------------------- | :----------------------------------- | :-------------------------------------- |
+| `static void setup_xarm_moveit(node)`            | `/move_group`からURDF/SRDFを取得してノードにセット | `node`: `std::shared_ptr<rclcpp::Node>` |
+| `void set_planning_pipeline(pipeline_name)`      | プランナーパイプラインを動的に切り替える                 | `"stomp"`, `"ompl"` など                  |
+| `bool set_joint_value_target(joint_values)`      | 関節角度リストを目標としてセット                     | `std::vector<double>`                   |
+| `bool plan()`                                    | 計画実行                                 | 戻り値: 成功で`true`                          |
+| `bool execute()`                                 | 実際にロボットを動かす（fake環境でもOK）              | 戻り値: 成功で`true`                          |
+| `std::vector<double> get_current_joint_values()` | 現在の関節角度を取得                           |                                         |
+| `geometry_msgs::msg::Pose get_current_pose()`    | 現在のエンドエフェクタの姿勢を取得                    |                                         |
+
+
 ## 使い方サンプル
 src/example_xarm_utils.cpp より抜粋：
 ```cpp
@@ -58,18 +70,6 @@ int main(int argc, char **argv)
     return 0;
 }
 ```
-
-## 関数リスト・API
-| 関数名                                              | 概要                                   | 引数例・備考                                  |
-| :----------------------------------------------- | :----------------------------------- | :-------------------------------------- |
-| `static void setup_xarm_moveit(node)`            | `/move_group`からURDF/SRDFを取得してノードにセット | `node`: `std::shared_ptr<rclcpp::Node>` |
-| `void set_planning_pipeline(pipeline_name)`      | プランナーパイプラインを動的に切り替える                 | `"stomp"`, `"ompl"` など                  |
-| `bool set_joint_value_target(joint_values)`      | 関節角度リストを目標としてセット                     | `std::vector<double>`                   |
-| `bool plan()`                                    | 計画実行                                 | 戻り値: 成功で`true`                          |
-| `bool execute()`                                 | 実際にロボットを動かす（fake環境でもOK）              | 戻り値: 成功で`true`                          |
-| `std::vector<double> get_current_joint_values()` | 現在の関節角度を取得                           |                                         |
-| `geometry_msgs::msg::Pose get_current_pose()`    | 現在のエンドエフェクタの姿勢を取得                    |                                         |
-
 ## 注意・既知の課題
 MoveIt2とxArm6 MoveGroup構成（SRDF等）は事前にセットアップしておくこと
 
