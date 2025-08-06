@@ -4,10 +4,12 @@
 int main(int argc, char **argv)
 {
     rclcpp::init(argc, argv);
+
     auto node = std::make_shared<rclcpp::Node>("example_xarm_utils");
 
-    XArmUtils::setup_xarm_moveit(node);
+    // XArmUtils::setup_xarm_moveit(node);
 
+    // XArmUtils xarm("xarm6");
     XArmUtils xarm(node, "xarm6");
     // xarm.set_planning_pipeline("ompl"); // ompl
     xarm.set_planning_pipeline("stomp"); // stomp

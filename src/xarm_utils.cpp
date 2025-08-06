@@ -2,8 +2,12 @@
 
 using namespace std::chrono_literals;
 
-XArmUtils::XArmUtils(const std::shared_ptr<rclcpp::Node>& node, const std::string& group_name) {
-    move_group_ = std::make_shared<moveit::planning_interface::MoveGroupInterface>(node, group_name);
+
+XArmUtils::XArmUtils(const std::shared_ptr<rclcpp::Node>& node, const std::string& group_name)
+ : node_(node)
+{
+    setup_xarm_moveit(node_);
+    move_group_ = std::make_shared<moveit::planning_interface::MoveGroupInterface>(node_, group_name);
 }
 
 void XArmUtils::setup_xarm_moveit(const std::shared_ptr<rclcpp::Node>& node)
