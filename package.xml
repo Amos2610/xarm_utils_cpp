@@ -16,6 +16,9 @@
   <depend>trajectory_msgs</depend>
   <depend>moveit_msgs</depend>
 
+  <build_depend>pybind11_vendor</build_depend>
+  <exec_depend>pybind11_vendor</exec_depend>
+
   <export>
     <build_type>ament_cmake</build_type>
   </export>

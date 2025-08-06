@@ -2,6 +2,7 @@
 #include <memory>
 #include <vector>
 #include <moveit/move_group_interface/move_group_interface.h>
+#include <rclcpp/rclcpp.hpp>
 
 class XArmUtils {
 public:
@@ -27,6 +28,7 @@ public:
     bool move_to_initial();
 
 private:
+    std::shared_ptr<rclcpp::Node> node_;
     std::shared_ptr<moveit::planning_interface::MoveGroupInterface> move_group_;
     moveit::planning_interface::MoveGroupInterface::Plan plan_;
 };
