@@ -70,6 +70,12 @@ int main(int argc, char **argv)
     return 0;
 }
 ```
+
+## 実行方法（C++のexampleを動かす場合）
+```bash
+ros2 run xarm_utils_cpp example_xarm_utils
+```
+
 ## 注意・既知の課題
 MoveIt2とxArm6 MoveGroup構成（SRDF等）は事前にセットアップしておくこと
 
