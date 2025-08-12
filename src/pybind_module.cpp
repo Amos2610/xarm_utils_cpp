@@ -18,6 +18,14 @@ PYBIND11_MODULE(xarm_utils_py, m) {
     py::class_<XArmUtils, std::shared_ptr<XArmUtils>>(m, "XArmUtils")
         .def(py::init<std::shared_ptr<rclcpp::Node>, const std::string&>())
         .def_static("setup_xarm_moveit", &XArmUtils::setup_xarm_moveit)
+        .def("set_move_group_parameter",
+            py::overload_cast<const std::string&, bool>(&XArmUtils::set_move_group_parameter))
+        .def("set_move_group_parameter",
+                py::overload_cast<const std::string&, int>(&XArmUtils::set_move_group_parameter))
+        .def("set_move_group_parameter",
+                py::overload_cast<const std::string&, double>(&XArmUtils::set_move_group_parameter))
+        .def("set_move_group_parameter",
+                py::overload_cast<const std::string&, const std::string&>(&XArmUtils::set_move_group_parameter))
         .def("set_planning_pipeline", &XArmUtils::set_planning_pipeline)
         .def("set_joint_value_target", &XArmUtils::set_joint_value_target)
         .def("plan", &XArmUtils::plan)

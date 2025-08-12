@@ -11,6 +11,12 @@ public:
     // xarmのmoveitをセットアップ
     static void setup_xarm_moveit(const std::shared_ptr<rclcpp::Node>& node);
 
+    // move_groupのパラメータを設定
+    bool set_move_group_parameter(const std::string& name, bool v);
+    bool set_move_group_parameter(const std::string& name, int v);
+    bool set_move_group_parameter(const std::string& name, double v);
+    bool set_move_group_parameter(const std::string& name, const std::string& v);
+
     // パイプライン切替（stomp, ompl）
     void set_planning_pipeline(const std::string& pipeline_name);
 

@@ -1,8 +1,45 @@
 #include "xarm_utils_cpp/xarm_utils.hpp"
+#include <rclcpp/parameter_client.hpp>
 
 using namespace std::chrono_literals;
 
+// ---- 内部ヘルパ：/move_group のリモートパラメータを設定 ----
+template <typename T>
+static bool set_remote_param(
+  const std::shared_ptr<rclcpp::Node>& node,
+  const std::string& remote_node,     // 例: "/move_group"
+  const std::string& name,
+  const T& value)
+{
+  auto client = std::make_shared<rclcpp::SyncParametersClient>(node, remote_node);
+  while (!client->wait_for_service(1s)) {
+    RCLCPP_INFO(node->get_logger(), "Waiting for %s parameter service...", remote_node.c_str());
+  }
 
+  auto results = client->set_parameters({ rclcpp::Parameter(name, value) });
+  if (results.empty() || !results.front().successful) {
+    const auto reason = results.empty() ? "no result" : results.front().reason;
+    RCLCPP_ERROR(node->get_logger(), "Failed to set %s on %s: %s",
+                 name.c_str(), remote_node.c_str(), reason.c_str());
+    return false;
+  }
+
+  // ログ（型に応じて整形）
+  if constexpr (std::is_same_v<T, bool>) {
+    RCLCPP_INFO(node->get_logger(), "Set %s on %s = %s",
+                name.c_str(), remote_node.c_str(), value ? "true" : "false");
+  } else if constexpr (std::is_same_v<T, std::string>) {
+    RCLCPP_INFO(node->get_logger(), "Set %s on %s = \"%s\"",
+                name.c_str(), remote_node.c_str(), value.c_str());
+  } else {
+    RCLCPP_INFO(node->get_logger(), "Set %s on %s = %g",
+                name.c_str(), remote_node.c_str(), static_cast<double>(value));
+  }
+  return true;
+}
+
+
+// =======================  XArmUtils  =======================
 XArmUtils::XArmUtils(const std::shared_ptr<rclcpp::Node>& node, const std::string& group_name)
  : node_(node)
 {
@@ -28,6 +65,20 @@ void XArmUtils::setup_xarm_moveit(const std::shared_ptr<rclcpp::Node>& node)
     }
     node->declare_parameter("robot_description", urdf);
     node->declare_parameter("robot_description_semantic", srdf);
+}
+
+// ---- set move_group parameters ----
+bool XArmUtils::set_move_group_parameter(const std::string& name, bool v) {
+    return set_remote_param(node_, "/move_group", name, v);
+}
+bool XArmUtils::set_move_group_parameter(const std::string& name, int v) {
+    return set_remote_param(node_, "/move_group", name, v);
+}
+bool XArmUtils::set_move_group_parameter(const std::string& name, double v) {
+    return set_remote_param(node_, "/move_group", name, v);
+}
+bool XArmUtils::set_move_group_parameter(const std::string& name, const std::string& v) {
+    return set_remote_param(node_, "/move_group", name, v);
 }
 
 // ---- set planning pipeline ----
