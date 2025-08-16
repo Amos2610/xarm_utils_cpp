@@ -29,8 +29,12 @@ public:
     void set_goal_joint_tolerance(double tol);
     
     bool set_joint_value_target(const std::vector<double>& joint_values);
-    bool plan();
-    bool execute();
+    std::tuple<bool,
+               trajectory_msgs::msg::JointTrajectory,
+               double,
+               moveit_msgs::msg::MoveItErrorCodes>
+    plan();
+    bool execute(const std::optional<trajectory_msgs::msg::JointTrajectory>& planned_trajectory = std::nullopt);
     bool move_to_initial();
 
 private:

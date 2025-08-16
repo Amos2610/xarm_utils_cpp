@@ -107,12 +107,49 @@ bool XArmUtils::set_joint_value_target(const std::vector<double>& joint_values) 
     return move_group_->setJointValueTarget(joint_values);
 }
 
-bool XArmUtils::plan() {
-    return (move_group_->plan(plan_) == moveit::core::MoveItErrorCode::SUCCESS);
+std::tuple<bool,
+           trajectory_msgs::msg::JointTrajectory,
+           double,
+           moveit_msgs::msg::MoveItErrorCodes>
+XArmUtils::plan()
+{
+    auto start_time = std::chrono::steady_clock::now();
+    auto error_code = move_group_->plan(plan_);
+    auto end_time = std::chrono::steady_clock::now();
+
+    double duration_sec = std::chrono::duration<double>(end_time - start_time).count();
+    bool success = (error_code == moveit::core::MoveItErrorCode::SUCCESS);
+
+    if (!success) {
+        RCLCPP_ERROR(node_->get_logger(), "Planning failed");
+        return {false, trajectory_msgs::msg::JointTrajectory(), duration_sec, moveit_msgs::msg::MoveItErrorCodes()};
+    }
+
+    // MoveItErrorCodes に変換
+    moveit_msgs::msg::MoveItErrorCodes ec_msg;
+    ec_msg.val = error_code.val; // enum値をコピー
+
+    return std::make_tuple(
+        success,
+        plan_.trajectory_.joint_trajectory,
+        duration_sec,
+        ec_msg
+    );
+
 }
 
-bool XArmUtils::execute() {
-    return (move_group_->execute(plan_) == moveit::core::MoveItErrorCode::SUCCESS);
+bool XArmUtils::execute(const std::optional<trajectory_msgs::msg::JointTrajectory>& planned_trajectory)
+{
+    if (planned_trajectory) {
+        // 外部からJointTrajectoryが渡された場合
+        moveit::planning_interface::MoveGroupInterface::Plan tmp_plan;
+        tmp_plan.trajectory_.joint_trajectory = *planned_trajectory;
+
+        return (move_group_->execute(tmp_plan) == moveit::core::MoveItErrorCode::SUCCESS);
+    } else {
+        // 従来通り内部plan_を実行
+        return (move_group_->execute(plan_) == moveit::core::MoveItErrorCode::SUCCESS);
+    }
 }
 
 bool XArmUtils::move_to_initial() {

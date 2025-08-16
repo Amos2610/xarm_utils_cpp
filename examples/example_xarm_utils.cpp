@@ -29,7 +29,8 @@ int main(int argc, char **argv)
         RCLCPP_ERROR(node->get_logger(), "Set target failed");
     }
 
-    if (xarm.plan())
+    auto [success, trajectory, duration, error_code] = xarm.plan();
+    if (success)
     {
         RCLCPP_INFO(node->get_logger(), "Plan success");
         // 実機の場合はコメント解除
