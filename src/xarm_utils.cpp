@@ -181,23 +181,6 @@ void XArmUtils::sync_start_state_to_current(double wait_sec)
    move_group_->setStartStateToCurrentState();
 }
 
-bool XArmUtils::wait_joint_state_newer_than(const rclcpp::Time& t, double timeout_sec)
-{
-  rclcpp::executors::SingleThreadedExecutor exec;
-  exec.add_node(node_);
-
-  const auto start = node_->get_clock()->now();
-  rclcpp::Rate r(100.0);
-  while (rclcpp::ok()) {
-    exec.spin_some();
-    if (last_js_stamp_ > t) return true;  // 1個でも新しいのが来たらOK
-    if ((node_->get_clock()->now() - start).seconds() > timeout_sec) return false;
-    r.sleep();
-  }
-  return false;
-}
-
-
 // =======================  Function of Air Cut  =======================
 // joint_states コールバック
 void XArmUtils::joint_state_cb(const sensor_msgs::msg::JointState::SharedPtr msg)
@@ -211,10 +194,6 @@ void XArmUtils::joint_state_cb(const sensor_msgs::msg::JointState::SharedPtr msg
       if (idx < msg->position.size()) current_joint_[i] = msg->position[idx];
     }
   }
-
-  last_js_stamp_ = rclcpp::Time(msg->header.stamp.sec,
-    msg->header.stamp.nanosec,
-    RCL_SYSTEM_TIME);
 }
 
 // 関節リミット検証
@@ -290,8 +269,7 @@ bool XArmUtils::xarm6_air_cut(const std::array<double, 6>& goal,
       RCLCPP_INFO(node_->get_logger(), "[xarm6_air_cut] reached goal (tol=%.4f rad).", tolerance);
 
       // 少し待ってからロボットの現在状態を同期
-      const auto t_reach = node_->get_clock()->now();
-      wait_joint_state_newer_than(t_reach, 0.5);   // 失敗でも続行してOK
+      rclcpp::sleep_for(std::chrono::milliseconds(100)); 
       sync_start_state_to_current(0.1);  // 0.1秒待つ
       return true;
     }

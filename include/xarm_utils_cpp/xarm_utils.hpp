@@ -53,7 +53,6 @@ private:
     std::shared_ptr<moveit::planning_interface::MoveGroupInterface> move_group_;
     moveit::planning_interface::MoveGroupInterface::Plan plan_;
 
-    rclcpp::Time last_js_stamp_{0, 0, RCL_SYSTEM_TIME};
     void joint_state_cb(const sensor_msgs::msg::JointState::SharedPtr msg);
     bool is_valid_joint_angles(const std::array<double, 6>& q) const;
     bool has_reached_goal(double tolerance) const;
