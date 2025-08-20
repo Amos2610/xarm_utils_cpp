@@ -1,5 +1,7 @@
 #include "xarm_utils_cpp/xarm_utils.hpp"
 #include <rclcpp/parameter_client.hpp>
+#include <rclcpp/executors/single_threaded_executor.hpp>
+#include <thread>
 
 using namespace std::chrono_literals;
 
@@ -45,6 +47,10 @@ XArmUtils::XArmUtils(const std::shared_ptr<rclcpp::Node>& node, const std::strin
 {
     setup_xarm_moveit(node_);
     move_group_ = std::make_shared<moveit::planning_interface::MoveGroupInterface>(node_, group_name);
+    traj_pub_ = node_->create_publisher<trajectory_msgs::msg::JointTrajectory>(traj_topic_, 10);
+    joint_sub_ = node_->create_subscription<sensor_msgs::msg::JointState>(
+        joint_states_topic_, rclcpp::SensorDataQoS(),
+        std::bind(&XArmUtils::joint_state_cb, this, std::placeholders::_1));
 }
 
 void XArmUtils::setup_xarm_moveit(const std::shared_ptr<rclcpp::Node>& node)
@@ -160,3 +166,137 @@ bool XArmUtils::move_to_initial() {
     move_group_->setNamedTarget("home");
     return (move_group_->move() == moveit::core::MoveItErrorCode::SUCCESS);
 }
+
+void XArmUtils::sync_start_state_to_current(double wait_sec)
+{
+   // 現在状態が取り込まれるまで wait_sec 秒待つ（取得できなくても nullptr になるだけ）
+   auto current = move_group_->getCurrentState(wait_sec);
+   if (!current) {
+     RCLCPP_WARN(node_->get_logger(),
+                 "[sync_start_state_to_current] current state not available within %.2fs; "
+                 "setting start state to whatever is in the monitor.", wait_sec);
+   }
+ 
+   // モニタに入っている現在状態を StartState に反映
+   move_group_->setStartStateToCurrentState();
+}
+
+bool XArmUtils::wait_joint_state_newer_than(const rclcpp::Time& t, double timeout_sec)
+{
+  rclcpp::executors::SingleThreadedExecutor exec;
+  exec.add_node(node_);
+
+  const auto start = node_->get_clock()->now();
+  rclcpp::Rate r(100.0);
+  while (rclcpp::ok()) {
+    exec.spin_some();
+    if (last_js_stamp_ > t) return true;  // 1個でも新しいのが来たらOK
+    if ((node_->get_clock()->now() - start).seconds() > timeout_sec) return false;
+    r.sleep();
+  }
+  return false;
+}
+
+
+// =======================  Function of Air Cut  =======================
+// joint_states コールバック
+void XArmUtils::joint_state_cb(const sensor_msgs::msg::JointState::SharedPtr msg)
+{
+  // xArm6 の順序で抽出
+  static const char* N[6] = {"joint1","joint2","joint3","joint4","joint5","joint6"};
+  for (int i = 0; i < 6; ++i) {
+    auto it = std::find(msg->name.begin(), msg->name.end(), std::string(N[i]));
+    if (it != msg->name.end()) {
+      size_t idx = std::distance(msg->name.begin(), it);
+      if (idx < msg->position.size()) current_joint_[i] = msg->position[idx];
+    }
+  }
+
+  last_js_stamp_ = rclcpp::Time(msg->header.stamp.sec,
+    msg->header.stamp.nanosec,
+    RCL_SYSTEM_TIME);
+}
+
+// 関節リミット検証
+bool XArmUtils::is_valid_joint_angles(const std::array<double, 6>& q) const
+{
+  // xArm6の関節角度制限を定義
+  const std::array<std::pair<double,double>,6> lim = {
+    std::make_pair(-2*M_PI,  2*M_PI),  // j1
+    std::make_pair(-2.059,   2.094),   // j2
+    std::make_pair(-3.927,   0.192),   // j3
+    std::make_pair(-2*M_PI,  2*M_PI),  // j4
+    std::make_pair(-1.692,   3.142),   // j5
+    std::make_pair(-2*M_PI,  2*M_PI)   // j6
+  };
+  for (int i=0;i<6;++i) {
+    if (q[i] < lim[i].first || q[i] > lim[i].second) return false;
+  }
+  return true;
+}
+
+// 到達判定
+bool XArmUtils::has_reached_goal(double tolerance) const
+{
+  if (!goal_joint_.has_value()) return false;
+  for (int i=0;i<6;++i) {
+    if (std::fabs(current_joint_[i] - goal_joint_->at(i)) > tolerance) return false;
+  }
+  return true;
+}
+
+// Air Cut 実行関数
+bool XArmUtils::xarm6_air_cut(const std::array<double, 6>& goal,
+                              double time_sec,
+                              double tolerance,
+                              double timeout_sec)
+{
+  // Limitis チェック
+  if (!is_valid_joint_angles(goal)) {
+    RCLCPP_WARN(node_->get_logger(), "[xarm6_air_cut] invalid joint angles.");
+    return false;
+  }
+
+  // JointTrajectory を作成して publish
+  trajectory_msgs::msg::JointTrajectory traj;
+  traj.joint_names = {"joint1","joint2","joint3","joint4","joint5","joint6"};
+  trajectory_msgs::msg::JointTrajectoryPoint p;
+  p.positions.assign(goal.begin(), goal.end());
+  builtin_interfaces::msg::Duration dur_msg;
+  if (time_sec < 0.0) time_sec = 0.0;
+  dur_msg.sec     = static_cast<int32_t>(std::floor(time_sec));
+  dur_msg.nanosec = static_cast<uint32_t>((time_sec - std::floor(time_sec)) * 1e9);
+  p.time_from_start = dur_msg;
+
+  traj.points.push_back(p);
+
+  goal_joint_ = goal;
+  traj_pub_->publish(traj);
+  RCLCPP_INFO(node_->get_logger(), "[xarm6_air_cut] published trajectory (T=%.3fs).", time_sec);
+
+  // 待機ループ
+  rclcpp::executors::SingleThreadedExecutor exec;
+  exec.add_node(node_);
+
+  const auto start = node_->get_clock()->now();
+  rclcpp::Rate rate(50.0);  // 20Hz→50Hz くらいにして反応性を上げてもOK
+  while (rclcpp::ok()) {
+    exec.spin_some();
+    if ((node_->get_clock()->now() - start).seconds() > timeout_sec) {
+      RCLCPP_WARN(node_->get_logger(), "[xarm6_air_cut] timeout (%.1fs).", timeout_sec);
+      return false;
+    }
+    if (has_reached_goal(tolerance)) {
+      RCLCPP_INFO(node_->get_logger(), "[xarm6_air_cut] reached goal (tol=%.4f rad).", tolerance);
+
+      // 少し待ってからロボットの現在状態を同期
+      const auto t_reach = node_->get_clock()->now();
+      wait_joint_state_newer_than(t_reach, 0.5);   // 失敗でも続行してOK
+      sync_start_state_to_current(0.1);  // 0.1秒待つ
+      return true;
+    }
+    rate.sleep();
+  }
+  return false;
+}
+// =====================================================================

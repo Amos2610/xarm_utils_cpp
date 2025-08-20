@@ -90,5 +90,13 @@ PYBIND11_MODULE(xarm_utils_py, m) {
         .def("execute", &XArmUtils::execute)
         .def("get_current_joint_values", &XArmUtils::get_current_joint_values)
         .def("get_current_pose", &XArmUtils::get_current_pose)
-        .def("move_to_initial", &XArmUtils::move_to_initial);
+        .def("move_to_initial", &XArmUtils::move_to_initial)
+        .def("sync_start_state_to_current", &XArmUtils::sync_start_state_to_current,
+            py::arg("wait_sec") = 0.5)
+        .def("set_goal_joint_tolerance", &XArmUtils::set_goal_joint_tolerance)
+        .def("xarm6_air_cut", &XArmUtils::xarm6_air_cut, 
+             py::arg("goal"),
+             py::arg("time_sec") = 2.0,
+             py::arg("tolerance") = 0.005,
+             py::arg("timeout_sec") = 10.0);
 }

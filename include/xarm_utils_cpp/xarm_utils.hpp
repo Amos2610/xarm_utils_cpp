@@ -1,6 +1,10 @@
 #pragma once
 #include <memory>
 #include <vector>
+#include <trajectory_msgs/msg/joint_trajectory.hpp>
+#include <sensor_msgs/msg/joint_state.hpp>
+#include <builtin_interfaces/msg/duration.hpp>
+#include <geometry_msgs/msg/pose.hpp>
 #include <moveit/move_group_interface/move_group_interface.h>
 #include <rclcpp/rclcpp.hpp>
 
@@ -37,9 +41,31 @@ public:
     // bool execute(const std::optional<trajectory_msgs::msg::JointTrajectory>& planned_trajectory = std::nullopt);
     bool execute();
     bool move_to_initial();
+    void sync_start_state_to_current(double wait_sec = 0.5);
+    bool wait_joint_state_newer_than(const rclcpp::Time& t, double timeout_sec = 0.5);
+    bool xarm6_air_cut(const std::array<double, 6>& goal,
+        double time_sec = 2.0,
+        double tolerance = 0.005,
+        double timeout_sec = 10.0);
 
 private:
     std::shared_ptr<rclcpp::Node> node_;
     std::shared_ptr<moveit::planning_interface::MoveGroupInterface> move_group_;
     moveit::planning_interface::MoveGroupInterface::Plan plan_;
+
+    rclcpp::Time last_js_stamp_{0, 0, RCL_SYSTEM_TIME};
+    void joint_state_cb(const sensor_msgs::msg::JointState::SharedPtr msg);
+    bool is_valid_joint_angles(const std::array<double, 6>& q) const;
+    bool has_reached_goal(double tolerance) const;
+
+    rclcpp::Publisher<trajectory_msgs::msg::JointTrajectory>::SharedPtr traj_pub_;
+    rclcpp::Subscription<sensor_msgs::msg::JointState>::SharedPtr joint_sub_;
+
+    // 現在値・目標値
+    std::array<double, 6> current_joint_{0,0,0,0,0,0};
+    std::optional<std::array<double, 6>> goal_joint_;
+
+    // トピック名（必要ならパラメータ化）
+    std::string traj_topic_ = "/xarm6_traj_controller/joint_trajectory";
+    std::string joint_states_topic_ = "/joint_states"; // 必要に応じて "/xarm/joint_states" に変更可
 };
