@@ -107,6 +107,11 @@ bool XArmUtils::set_joint_value_target(const std::vector<double>& joint_values) 
     return move_group_->setJointValueTarget(joint_values);
 }
 
+// ---- set pose target ----
+bool XArmUtils::set_pose_target(const geometry_msgs::msg::Pose& pose) {
+    return move_group_->setPoseTarget(pose);
+}
+
 std::tuple<bool,
            trajectory_msgs::msg::JointTrajectory,
            double,

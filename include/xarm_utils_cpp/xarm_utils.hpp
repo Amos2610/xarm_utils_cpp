@@ -29,6 +29,7 @@ public:
     void set_goal_joint_tolerance(double tol);
     
     bool set_joint_value_target(const std::vector<double>& joint_values);
+    bool set_pose_target(const geometry_msgs::msg::Pose& pose);
     std::tuple<bool,
                trajectory_msgs::msg::JointTrajectory,
                double,

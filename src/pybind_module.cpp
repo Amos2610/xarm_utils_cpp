@@ -55,6 +55,7 @@ PYBIND11_MODULE(xarm_utils_py, m) {
                 py::overload_cast<const std::string&, const std::string&>(&XArmUtils::set_move_group_parameter))
         .def("set_planning_pipeline", &XArmUtils::set_planning_pipeline)
         .def("set_joint_value_target", &XArmUtils::set_joint_value_target)
+        .def("set_pose_target", &XArmUtils::set_pose_target)
         .def("plan", [](XArmUtils &self) {
             auto [success, traj_cpp, dur, err] = self.plan();
 
