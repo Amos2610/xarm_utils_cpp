@@ -3,13 +3,15 @@
 #include <vector>
 #include <moveit/move_group_interface/move_group_interface.h>
 #include <rclcpp/rclcpp.hpp>
+#include <rclcpp_action/rclcpp_action.hpp>
+#include <control_msgs/control_msgs/action/gripper_command.hpp>
 
 class XArmUtils {
 public:
     XArmUtils(const std::shared_ptr<rclcpp::Node>& node, const std::string& group_name);
     
     // xarmのmoveitをセットアップ
-    static void setup_xarm_moveit(const std::shared_ptr<rclcpp::Node>& node);
+    static void setup_xarm_moveit(const std::shared_ptr<rclcpp::Node>& node, const std::string& group_name);
 
     // move_groupのパラメータを設定
     bool set_move_group_parameter(const std::string& name, bool v);
@@ -24,6 +26,18 @@ public:
     std::vector<double> get_current_joint_values();
     // 現在のポーズを取得
     geometry_msgs::msg::Pose get_current_pose();
+
+    // グリッパー制御
+    bool gripper_command(double position, double max_effort = 50.0, double timeout_sec = 5.0);
+    bool gripper_open(double max_effort = 50.0, double timeout_sec = 5.0);
+    bool gripper_close(double max_effort = 50.0, double timeout_sec = 5.0);
+
+    // IK計算
+    std::optional<std::vector<double>> compute_ik(
+      const geometry_msgs::msg::Pose& target_pose,
+      double timeout_sec = 0.1,
+      int attempts = 10,
+      const std::string& ik_link = "");
 
     // toleranceの設定
     void set_goal_joint_tolerance(double tol);
@@ -43,4 +57,7 @@ private:
     std::shared_ptr<rclcpp::Node> node_;
     std::shared_ptr<moveit::planning_interface::MoveGroupInterface> move_group_;
     moveit::planning_interface::MoveGroupInterface::Plan plan_;
+
+    std::string group_name_;
+    rclcpp_action::Client<control_msgs::action::GripperCommand>::SharedPtr gripper_client_;
 };

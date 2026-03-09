@@ -8,6 +8,7 @@ endif()
 find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(rclcpp_action REQUIRED)
+find_package(control_msgs REQUIRED)
 find_package(moveit_ros_planning_interface REQUIRED)
 find_package(pybind11_vendor REQUIRED)
 find_package(pybind11 REQUIRED)
@@ -27,6 +28,7 @@ ament_target_dependencies(xarm_utils
   rclcpp
   rclcpp_action
   moveit_ros_planning_interface
+  control_msgs
 )
 
 install(TARGETS
@@ -39,6 +41,7 @@ ament_target_dependencies(example_xarm_utils
   rclcpp
   rclcpp_action
   moveit_ros_planning_interface
+  control_msgs
 )
 target_link_libraries(example_xarm_utils
   xarm_utils
