@@ -1,8 +1,10 @@
 #pragma once
 #include <memory>
+#include <thread>
 #include <vector>
 #include <moveit/move_group_interface/move_group_interface.h>
 #include <rclcpp/rclcpp.hpp>
+#include <rclcpp/executors/multi_threaded_executor.hpp>
 #include <rclcpp_action/rclcpp_action.hpp>
 #include <control_msgs/control_msgs/action/gripper_command.hpp>
 
@@ -60,4 +62,7 @@ private:
 
     std::string group_name_;
     rclcpp_action::Client<control_msgs::action::GripperCommand>::SharedPtr gripper_client_;
+
+    std::shared_ptr<rclcpp::executors::MultiThreadedExecutor> executor_;
+    std::thread executor_thread_;
 };

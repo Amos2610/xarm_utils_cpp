@@ -48,7 +48,13 @@ XArmUtils::XArmUtils(const std::shared_ptr<rclcpp::Node>& node, const std::strin
  : node_(node), group_name_(group_name)
 {
     setup_xarm_moveit(node_, group_name_);
+
+    executor_ = std::make_shared<rclcpp::executors::MultiThreadedExecutor>();
+    executor_->add_node(node_);
+    executor_thread_ = std::thread([this]() { executor_->spin(); });
+
     move_group_ = std::make_shared<moveit::planning_interface::MoveGroupInterface>(node_, group_name_);
+    move_group_->setEndEffectorLink("link_tcp");
 }
 
 void XArmUtils::setup_xarm_moveit(const std::shared_ptr<rclcpp::Node>& node, const std::string& group_name)
