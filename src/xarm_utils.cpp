@@ -271,21 +271,16 @@ XArmUtils::plan()
 
 }
 
-// bool XArmUtils::execute(const std::optional<trajectory_msgs::msg::JointTrajectory>& planned_trajectory)
 bool XArmUtils::execute()
 {
-    // if (planned_trajectory) {
-    //     // 外部からJointTrajectoryが渡された場合
-    //     moveit::planning_interface::MoveGroupInterface::Plan tmp_plan;
-    //     tmp_plan.trajectory_.joint_trajectory = *planned_trajectory;
-
-    //     return (move_group_->execute(tmp_plan) == moveit::core::MoveItErrorCode::SUCCESS);
-    // } else {
-    //     // 従来通り内部plan_を実行
-    //     return (move_group_->execute(plan_) == moveit::core::MoveItErrorCode::SUCCESS);
-    // }
     return (move_group_->execute(plan_) == moveit::core::MoveItErrorCode::SUCCESS);
+}
 
+bool XArmUtils::execute_with_plan(const trajectory_msgs::msg::JointTrajectory& planned_trajectory)
+{
+    moveit::planning_interface::MoveGroupInterface::Plan tmp_plan;
+    tmp_plan.trajectory_.joint_trajectory = planned_trajectory;
+    return (move_group_->execute(tmp_plan) == moveit::core::MoveItErrorCode::SUCCESS);
 }
 
 bool XArmUtils::gripper_command(double position, double max_effort, double timeout_sec)

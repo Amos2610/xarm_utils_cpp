@@ -51,8 +51,8 @@ public:
                double,
                moveit_msgs::msg::MoveItErrorCodes>
     plan();
-    // bool execute(const std::optional<trajectory_msgs::msg::JointTrajectory>& planned_trajectory = std::nullopt);
     bool execute();
+    bool execute_with_plan(const trajectory_msgs::msg::JointTrajectory& planned_trajectory);
     bool move_to_initial();
 
 private:

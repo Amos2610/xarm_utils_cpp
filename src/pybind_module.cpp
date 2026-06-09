@@ -160,6 +160,26 @@ PYBIND11_MODULE(xarm_utils_py, m) {
             return py::make_tuple(success, jt_py, dur, err_py);
         })
         .def("execute", &XArmUtils::execute)
+        .def("execute_with_plan", [](XArmUtils& self, py::object jt_py) {
+            trajectory_msgs::msg::JointTrajectory jt_cpp;
+            // joint_names
+            for (auto jn : jt_py.attr("joint_names")) {
+                jt_cpp.joint_names.push_back(py::str(jn).cast<std::string>());
+            }
+            // points
+            for (auto p_obj : jt_py.attr("points")) {
+                py::object p_py = py::reinterpret_borrow<py::object>(p_obj);
+                trajectory_msgs::msg::JointTrajectoryPoint p_cpp;
+                p_cpp.positions = p_py.attr("positions").cast<std::vector<double>>();
+                try { p_cpp.velocities = p_py.attr("velocities").cast<std::vector<double>>(); } catch (...) {}
+                try { p_cpp.accelerations = p_py.attr("accelerations").cast<std::vector<double>>(); } catch (...) {}
+                py::object t = p_py.attr("time_from_start");
+                p_cpp.time_from_start.sec = t.attr("sec").cast<int32_t>();
+                p_cpp.time_from_start.nanosec = t.attr("nanosec").cast<uint32_t>();
+                jt_cpp.points.push_back(p_cpp);
+            }
+            return self.execute_with_plan(jt_cpp);
+        })
         .def("get_current_joint_values", &XArmUtils::get_current_joint_values)
         // .def("get_current_pose", &XArmUtils::get_current_pose)
         .def("get_current_pose", [](XArmUtils &self) {
