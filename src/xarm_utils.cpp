@@ -15,12 +15,24 @@ static bool set_remote_param(
   const std::string& name,
   const T& value)
 {
-  auto client = std::make_shared<rclcpp::SyncParametersClient>(node, remote_node);
+  // [JACIII executor-fix 2026-07-23]
+  // SyncParametersClient は内部で spin_until_future_complete(node) を行うため、
+  // node_ が既に executor_ で spin されている構成では
+  // "Node has already been added to an executor" 例外で必ず失敗していた
+  // （→ stomp.use_custom_trajectory が設定されず、シードが STOMP に渡らない）。
+  // Async クライアント + future.wait_for に変更（コールバックは常時 spin 中の executor_ が処理）。
+  auto client = std::make_shared<rclcpp::AsyncParametersClient>(node, remote_node);
   while (!client->wait_for_service(1s)) {
     RCLCPP_INFO(node->get_logger(), "Waiting for %s parameter service...", remote_node.c_str());
   }
 
-  auto results = client->set_parameters({ rclcpp::Parameter(name, value) });
+  auto fut = client->set_parameters({ rclcpp::Parameter(name, value) });
+  if (fut.wait_for(5s) != std::future_status::ready) {
+    RCLCPP_ERROR(node->get_logger(), "Timeout setting %s on %s",
+                 name.c_str(), remote_node.c_str());
+    return false;
+  }
+  auto results = fut.get();
   if (results.empty() || !results.front().successful) {
     const auto reason = results.empty() ? "no result" : results.front().reason;
     RCLCPP_ERROR(node->get_logger(), "Failed to set %s on %s: %s",
@@ -49,12 +61,19 @@ XArmUtils::XArmUtils(const std::shared_ptr<rclcpp::Node>& node, const std::strin
 {
     setup_xarm_moveit(node_, group_name_);
 
+    // [JACIII executor-fix 2026-07-21]
+    // 以前は node_ を我々の executor_ に先取り add + 常時 spin していたが、その後に
+    // MoveGroupInterface(node_) が自身の内部 executor へ node_ を add しようとして失敗し
+    // （"Node already added to an executor" WARN）、MGI の current-state monitor /
+    // planning 結果コールバックが処理されず plan() がハングしていた。
+    // → node_ の spin は MoveGroupInterface に委ね、ここでの add/spin は行わない。
+    move_group_ = std::make_shared<moveit::planning_interface::MoveGroupInterface>(node_, group_name_);
+    move_group_->setEndEffectorLink("link_tcp");
+
+    // node_ 上の補助クライアント（IK / gripper 等）のコールバックも回るよう、別途 spin する。
     executor_ = std::make_shared<rclcpp::executors::MultiThreadedExecutor>();
     executor_->add_node(node_);
     executor_thread_ = std::thread([this]() { executor_->spin(); });
-
-    move_group_ = std::make_shared<moveit::planning_interface::MoveGroupInterface>(node_, group_name_);
-    move_group_->setEndEffectorLink("link_tcp");
 }
 
 void XArmUtils::setup_xarm_moveit(const std::shared_ptr<rclcpp::Node>& node, const std::string& group_name)
@@ -306,11 +325,12 @@ bool XArmUtils::gripper_command(double position, double max_effort, double timeo
   // 送信
   auto send_goal_options = rclcpp_action::Client<ActionT>::SendGoalOptions();
 
+  // [JACIII executor-fix 2026-07-23] node_ は executor_ が常時 spin 中のため
+  // spin_until_future_complete(node_) は "already added to an executor" で例外になる。
+  // future.wait_for に変更（コールバックは executor_ スレッドが処理）。
   auto goal_future = gripper_client_->async_send_goal(goal, send_goal_options);
-  auto ret1 = rclcpp::spin_until_future_complete(node_, goal_future,
-      std::chrono::duration<double>(timeout_sec));
-
-  if (ret1 != rclcpp::FutureReturnCode::SUCCESS) {
+  if (goal_future.wait_for(std::chrono::duration<double>(timeout_sec)) !=
+      std::future_status::ready) {
     RCLCPP_ERROR(node_->get_logger(), "Gripper send_goal timeout/failed");
     return false;
   }
@@ -323,10 +343,8 @@ bool XArmUtils::gripper_command(double position, double max_effort, double timeo
 
   // 結果待ち
   auto result_future = gripper_client_->async_get_result(goal_handle);
-  auto ret2 = rclcpp::spin_until_future_complete(node_, result_future,
-      std::chrono::duration<double>(timeout_sec));
-
-  if (ret2 != rclcpp::FutureReturnCode::SUCCESS) {
+  if (result_future.wait_for(std::chrono::duration<double>(timeout_sec)) !=
+      std::future_status::ready) {
     RCLCPP_ERROR(node_->get_logger(), "Gripper get_result timeout/failed");
     return false;
   }
