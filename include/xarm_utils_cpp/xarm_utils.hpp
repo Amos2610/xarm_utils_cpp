@@ -24,6 +24,16 @@ public:
     // パイプライン切替（stomp, ompl）
     void set_planning_pipeline(const std::string& pipeline_name);
 
+    // plan() の計画時間の上限。MotionPlanRequest のフィールドで /move_group の
+    // パラメータではないので、set_move_group_parameter では届かない。
+    void set_planning_time(double seconds);
+
+    // 現在姿勢ではなく指定した関節角から計画する（PRSM の simulate_only で
+    // 実行せずに計画を連結するため）。グループ不明・要素数不一致なら false。
+    bool set_start_state(const std::vector<double>& joint_values);
+    // 計画の開始状態を現在姿勢に戻す。
+    void set_start_state_to_current();
+
     // 現在の関節値を取得
     std::vector<double> get_current_joint_values();
     // 現在のポーズを取得
