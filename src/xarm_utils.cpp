@@ -178,6 +178,45 @@ void XArmUtils::set_planning_pipeline(const std::string& pipeline_name)
     move_group_->setPlanningPipelineId(pipeline_name);
 }
 
+// ---- planning time ----
+void XArmUtils::set_planning_time(double seconds)
+{
+    move_group_->setPlanningTime(seconds);
+}
+
+// ---- start state ----
+// ロボアプリ版 motoman_nex10_utils_cpp（nishida-lab-com/motoman_nex10_ros2）からの移植。
+bool XArmUtils::set_start_state(const std::vector<double>& joint_values)
+{
+    const auto* jmg = move_group_->getRobotModel()->getJointModelGroup(group_name_);
+    if (!jmg) {
+        RCLCPP_ERROR(node_->get_logger(),
+            "set_start_state: JointModelGroup '%s' not found.", group_name_.c_str());
+        return false;
+    }
+    if (joint_values.size() != jmg->getVariableCount()) {
+        RCLCPP_ERROR(node_->get_logger(),
+            "set_start_state: expected %zu joint values for group '%s', got %zu.",
+            static_cast<size_t>(jmg->getVariableCount()), group_name_.c_str(), joint_values.size());
+        return false;
+    }
+
+    // RobotState を丸ごと渡すと is_diff=false のメッセージになり、move_group が
+    // 計画の開始状態から attach 物体を捨てる（掴んだ物が障害物に当たらなくなる）。
+    // 関節角だけの差分にして、シーン側の attach 物体を残す。
+    moveit_msgs::msg::RobotState start;
+    start.is_diff = true;
+    start.joint_state.name = jmg->getVariableNames();
+    start.joint_state.position = joint_values;
+    move_group_->setStartState(start);
+    return true;
+}
+
+void XArmUtils::set_start_state_to_current()
+{
+    move_group_->setStartStateToCurrentState();
+}
+
 // ---- get current joint values ---- TODO: fakeだと動かない
 std::vector<double> XArmUtils::get_current_joint_values() {
     return move_group_->getCurrentJointValues();

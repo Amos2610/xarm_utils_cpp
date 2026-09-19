@@ -63,6 +63,10 @@ PYBIND11_MODULE(xarm_utils_py, m) {
         .def("set_move_group_parameter",
                 py::overload_cast<const std::string&, const std::string&>(&XArmUtils::set_move_group_parameter))
         .def("set_planning_pipeline", &XArmUtils::set_planning_pipeline)
+        .def("set_planning_time", &XArmUtils::set_planning_time, py::arg("seconds"))
+        // 現在姿勢ではなく指定した関節角から計画する
+        .def("set_start_state", &XArmUtils::set_start_state, py::arg("joint_values"))
+        .def("set_start_state_to_current", &XArmUtils::set_start_state_to_current)
         .def("set_joint_value_target", &XArmUtils::set_joint_value_target)
         // [x,y,z,qx,qy,qz,qw] を受け取る版
         .def("set_pose_target", [](XArmUtils &self, const std::vector<double> &v) {
