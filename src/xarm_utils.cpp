@@ -185,7 +185,6 @@ void XArmUtils::set_planning_time(double seconds)
 }
 
 // ---- start state ----
-// ロボアプリ版 motoman_nex10_utils_cpp（nishida-lab-com/motoman_nex10_ros2）からの移植。
 bool XArmUtils::set_start_state(const std::vector<double>& joint_values)
 {
     const auto* jmg = move_group_->getRobotModel()->getJointModelGroup(group_name_);
